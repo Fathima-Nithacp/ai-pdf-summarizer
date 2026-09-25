@@ -1,0 +1,6 @@
+{
+  "name": "PDF.AI - Intelligent PDF Summarizer & Study Workspace",
+  "description": "Transform documents and study notes into executive summaries, key concepts, interactive flashcards, exam questions, and contextual AI chat.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
