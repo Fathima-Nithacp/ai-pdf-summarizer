@@ -358,6 +358,198 @@ Keep questions crisp and answers clear and memorable.`;
   }
 });
 
+// 5. POST /api/quiz
+app.post('/api/quiz', async (req, res) => {
+  try {
+    const { subject, topic, count = 5, difficulty = 'medium', questionType = 'mcq', contextText } = req.body;
+
+    const systemInstruction = `You are StudyAI Quiz Master, creating high-yield, engaging university-level test questions for students.
+Questions must be accurate, have plausible distractors for MCQs, and provide clear explanations.`;
+
+    const prompt = `Create a ${count}-question quiz for:
+Subject: ${subject || 'Computer Science'}
+Topic: ${topic || 'Core Fundamentals'}
+Difficulty: ${difficulty}
+Format: ${questionType} (MCQ with 4 options or True/False)
+${contextText ? `Context material:\n"""\n${contextText.slice(0, 15000)}\n"""` : ''}
+
+Make sure options are labeled clearly like "A) ...", "B) ...", "C) ...", "D) ...", or "A) True", "B) False".`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            questions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  question: { type: Type.STRING },
+                  options: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                  },
+                  correctAnswer: { type: Type.STRING, description: 'The exact string matching the correct option' },
+                  explanation: { type: Type.STRING, description: 'Clear pedagogical explanation of why this answer is correct' },
+                },
+                required: ['id', 'question', 'options', 'correctAnswer', 'explanation'],
+              },
+            },
+          },
+          required: ['questions'],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || '{}');
+    return res.json(parsed);
+  } catch (error: any) {
+    console.error('Error in /api/quiz:', error);
+    return res.status(500).json({ error: error.message || 'Failed to generate quiz' });
+  }
+});
+
+// 6. POST /api/study-plan
+app.post('/api/study-plan', async (req, res) => {
+  try {
+    const { subject, examDate, modules = [], dailyHours = 2 } = req.body;
+
+    const prompt = `Create a realistic, motivating day-by-day study plan leading up to an exam:
+Subject: ${subject}
+Target Exam Date: ${examDate || 'Next 2-3 weeks'}
+Modules to cover: ${modules.join(', ') || 'All Modules'}
+Available Study Time: ${dailyHours} hours per day.
+
+Generate a structured daily breakdown with study sessions, short active recall quizzes, and revision checkpoints.
+Organize into 5 to 7 milestone days.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: 'You are an academic coach and study planner creating balanced, burnout-free study schedules for students.',
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            subject: { type: Type.STRING },
+            totalDays: { type: Type.INTEGER },
+            dailySchedule: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  dayLabel: { type: Type.STRING, description: 'e.g. "Day 1 - Foundation" or "Sep 28"' },
+                  date: { type: Type.STRING },
+                  focusTopic: { type: Type.STRING },
+                  tasks: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        id: { type: Type.STRING },
+                        title: { type: Type.STRING },
+                        durationMin: { type: Type.INTEGER },
+                        type: { type: Type.STRING, description: 'study, quiz, revision, or rest' },
+                        completed: { type: Type.BOOLEAN },
+                      },
+                      required: ['id', 'title', 'durationMin', 'type'],
+                    },
+                  },
+                },
+                required: ['dayLabel', 'focusTopic', 'tasks'],
+              },
+            },
+          },
+          required: ['subject', 'dailySchedule'],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || '{}');
+    return res.json(parsed);
+  } catch (error: any) {
+    console.error('Error in /api/study-plan:', error);
+    return res.status(500).json({ error: error.message || 'Failed to generate study plan' });
+  }
+});
+
+// 7. POST /api/generate-notes
+app.post('/api/generate-notes', async (req, res) => {
+  try {
+    const { subject, moduleName, topic, textContent } = req.body;
+
+    const prompt = `Generate clean, student-friendly structured study notes for:
+Subject: ${subject}
+Module: ${moduleName}
+Topic: ${topic}
+${textContent ? `Material content:\n${textContent.slice(0, 15000)}` : ''}
+
+Format according to the schema with:
+1. Core Important Concepts (with title & explanation)
+2. ⭐ Remember Box (one crystal-clear rule of thumb)
+3. 📖 Real-world Examples (practical analogy or tech application)`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: 'You are StudyAI note compiler. You write punchy, memorable, well-structured academic notes for students.',
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            subject: { type: Type.STRING },
+            moduleName: { type: Type.STRING },
+            importantConcepts: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  title: { type: Type.STRING },
+                  explanation: { type: Type.STRING },
+                },
+                required: ['id', 'title', 'explanation'],
+              },
+            },
+            rememberBox: {
+              type: Type.STRING,
+              description: 'The single most vital takeaway or rule to remember.',
+            },
+            examples: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  concept: { type: Type.STRING },
+                  example: { type: Type.STRING },
+                },
+                required: ['concept', 'example'],
+              },
+            },
+          },
+          required: ['title', 'subject', 'moduleName', 'importantConcepts', 'rememberBox', 'examples'],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || '{}');
+    return res.json(parsed);
+  } catch (error: any) {
+    console.error('Error in /api/generate-notes:', error);
+    return res.status(500).json({ error: error.message || 'Failed to generate notes' });
+  }
+});
+
 // Setup Vite or static serving
 async function startServer() {
   if (process.env.NODE_ENV === 'production') {

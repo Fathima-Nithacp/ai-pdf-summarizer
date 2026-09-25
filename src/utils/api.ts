@@ -1,4 +1,4 @@
-import { SummaryData, ExamQuestion, Flashcard } from '../types';
+import { SummaryData, ExamQuestion, Flashcard, QuizQuestion, StructuredNote, StudyPlan } from '../types';
 
 export async function generateSummaryApi(
   title: string,
@@ -78,4 +78,74 @@ export async function generateFlashcardsApi(
   }
 
   return await res.json();
+}
+
+// 5. Quiz Generator
+export async function generateQuizApi(
+  subject: string,
+  topic: string,
+  count = 5,
+  difficulty: 'easy' | 'medium' | 'hard' = 'medium',
+  questionType = 'mcq',
+  contextText?: string
+): Promise<{ title: string; questions: QuizQuestion[] }> {
+  const res = await fetch('/api/quiz', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subject, topic, count, difficulty, questionType, contextText }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to generate quiz');
+  }
+
+  return await res.json();
+}
+
+// 6. Study Plan Generator
+export async function generateStudyPlanApi(
+  subject: string,
+  examDate: string,
+  modules: string[],
+  dailyHours: number
+): Promise<StudyPlan> {
+  const res = await fetch('/api/study-plan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subject, examDate, modules, dailyHours }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to generate study plan');
+  }
+
+  return await res.json();
+}
+
+// 7. Structured Notes Generator
+export async function generateNotesApi(
+  subject: string,
+  moduleName: string,
+  topic: string,
+  textContent?: string
+): Promise<StructuredNote> {
+  const res = await fetch('/api/generate-notes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subject, moduleName, topic, textContent }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to generate notes');
+  }
+
+  const data = await res.json();
+  return {
+    ...data,
+    id: 'note-' + Date.now(),
+    dateCreated: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+  };
 }
